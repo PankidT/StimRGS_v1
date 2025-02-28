@@ -1,6 +1,7 @@
 from dataclasses import dataclass
+from src.stimrgs_v1.utils import stim_rgs_3arms
 import stim
-
+import pytest
 
 @dataclass
 class RGS_3arms:
@@ -20,12 +21,24 @@ class RGS_3arms:
         '______ZZ___X'  # node 11
     ]
 
-def test_stim_rgs_3arms(s: stim.TableauSimulator) -> None:
+def test_stim_rgs_3arms() -> None:
     """
     For checking if the stim tableausimulator have the correct stabilizer form
     """
+    s = stim_rgs_3arms()
     # Checking number of nodes
     assert len(s.current_inverse_tableau()) == 12
 
     # Check stabilizer generator
-    
+    queries = RGS_3arms().queries
+    for q in queries:
+        assert s.peek_observable_expectation(stim.PauliString(q)) == 1
+
+def test_mesure_z_with_correction() -> None:
+    pass
+
+def test_is_subset() -> None:
+    pass
+
+def test_generate_combinations_with_adjustable_replacement() -> None:
+    pass
