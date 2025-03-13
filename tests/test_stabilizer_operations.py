@@ -29,11 +29,6 @@ def queries_3arms_2bells():
         '______ZZ___X'  # node 11
     ]
 
-# @pytest.fixture
-# def measurement_indices():
-#     """Fixture providing measurement indices to test."""
-#     return [1, 4, 7, 10]
-
 def test_stim_rgs_3arms_2bells(queries_3arms_2bells) -> None:
     """
     For checking if the stim tableausimulator have the correct stabilizer form
@@ -52,17 +47,13 @@ def test_stim_rgs_3arms_2bells(queries_3arms_2bells) -> None:
         if len(q) != 12:
             raise ValueError(f"Query {q} has length {len(q)}, but should have length 12.")
 
-def test_measure_z_with_correction():
-    # s, queries_mz_plus = measure_z_with_correction(index=1, s=queries_3arms_2bells, queries=queries_3arms_2bells)
-    # for q in queries_mz_plus:
-    #     assert s.peek_observable_expectation(stim.PauliString(q)) == 1
-    pass
-
-def test_measure_z_circuit():
-    pass
-
-def measure_y_with_correction():
-    pass
+def test_measure_z_with_correction(simulator_3arms_2bells, queries_3arms_2bells):
+    queries = queries_3arms_2bells.copy()
+    s = simulator_3arms_2bells.copy()
+    for i in range(1, 10):
+        s, queries = measure_z_with_correction(index=i, s=s, queries=queries)
+        for q in queries:
+            assert s.peek_observable_expectation(stim.PauliString(q)) == 1
 
 def test_generate_rgs_random():
     queries, circuit = generate_rgs_random(num_nodes=16, num_bell_between_row=2)
@@ -77,4 +68,13 @@ def test_generate_rgs_random():
         assert s.peek_observable_expectation(stim.PauliString(q)) == 1
 
 def test_find_stabilizers_result():
+    num_nodes = [12, 16, 20, 24]
+    for i in num_nodes:
+        result = find_stabilizers_result(num_nodes=i)
+        assert len(result) == ((i//4)**4)
+
+def test_measure_z_circuit():
+    pass
+
+def measure_y_with_correction():
     pass
