@@ -62,46 +62,100 @@ def test_has_edge() -> None:
             # print(f"FAIL: Edge between {n1} and {n2} should be {'present' if expected else 'absent'} but got {'present' if result else 'absent'}") 
             assert False
 
+def test_find_neighbors_from_selected_node():
+    test_cases = [0, 1, 1, 2, 2, 3, 3, 4]
+    for i in range(5):
+        if i == 0:
+            assert find_neighbors_from_selected_node(test_cases, i) == [1]
+        elif i == 1:
+            assert find_neighbors_from_selected_node(test_cases, i) == [0, 2]
+        elif i == 2:
+            assert find_neighbors_from_selected_node(test_cases, i) == [1, 3]
+        elif i == 3:
+            assert find_neighbors_from_selected_node(test_cases, i) == [2, 4]
+        elif i == 4:
+            assert find_neighbors_from_selected_node(test_cases, i) == [3]
+
+def test_extract_numbers_after_cz():
+    circuit = '''
+        H 0 1 2 3 4
+        CZ 0 1 1 2 2 3 3 4
+    '''
+    result = extract_numbers_after_cz(circuit)
+    assert result == [0, 1, 1, 2, 2, 3, 3, 4]
+    
+
+def test_filter_groups():
+    group = [0, 1, 1, 2, 2, 3, 3, 4]
+    filter_test = [(0, 1), (1, 3), (1, 4)]
+    assert filter_groups(group, filter_test) == [1, 2, 1, 3, 1, 4, 2, 3, 3, 4]    
+
+def generate_h_cz_string():
+    pass
+
 def test_local_complementation_stim() -> None:
-    test_queries = [
+    queries = [
         "XZ___",
         "ZXZ__", 
         "_ZXZ_", 
         "__ZXZ", 
-        "___ZX", 
-        "____X"        
+        "___ZX"        
     ]
+    circuit = """
+        H 0 1 2 3 4
+        CZ 0 1 1 2 2 3 3 4
+    """
 
-    for idx in range(len(test_queries)):
-        test_queries = local_complementation_stim(index=idx, queries=test_queries)         
+    for idx in range(len(queries)):
+        s, queries, circuit = local_complementation_stim(index=idx, queries=queries, circuit=circuit)         
 
         if idx == 0:
-            assert test_queries[0] == "XZ___"
-            assert test_queries[1] == "ZXZ__"
-            assert test_queries[2] == "_ZXZ_"
-            assert test_queries[3] == "__ZXZ"
-            assert test_queries[4] == "___ZX"            
+            assert queries[0] == "XZ___"
+            assert queries[1] == "ZXZ__"
+            assert queries[2] == "_ZXZ_"
+            assert queries[3] == "__ZXZ"
+            assert queries[4] == "___ZX"
+            assert circuit == """H 0 1 2 3 4\nCZ 0 1 1 2 2 3 3 4"""
+            for q in queries:
+                assert s.peek_observable_expectation(stim.PauliString(q)) == 1
+
         elif idx == 1:
-            assert test_queries[0] == "XZZ__"
-            assert test_queries[1] == "ZXZ__"
-            assert test_queries[2] == "ZZXZ_"
-            assert test_queries[3] == "__ZXZ"
-            assert test_queries[4] == "___ZX"
+            assert queries[0] == "XZZ__"
+            assert queries[1] == "ZXZ__"
+            assert queries[2] == "ZZXZ_"
+            assert queries[3] == "__ZXZ"
+            assert queries[4] == "___ZX"
+            assert circuit == """H 0 1 2 3 4\nCZ 0 1 0 2 1 2 2 3 3 4"""
+            for q in queries:
+                assert s.peek_observable_expectation(stim.PauliString(q)) == 1
+
         elif idx == 2:
-            assert test_queries[0] == "X_ZZ_"
-            assert test_queries[1] == "_XZZ_"
-            assert test_queries[2] == "ZZXZ_"
-            assert test_queries[3] == "ZZZXZ"
-            assert test_queries[4] == "___ZX"
+            assert queries[0] == "X_ZZ_"
+            assert queries[1] == "_XZZ_"
+            assert queries[2] == "ZZXZ_"
+            assert queries[3] == "ZZZXZ"
+            assert queries[4] == "___ZX"
+            print(circuit)
+            assert circuit == """H 0 1 2 3 4\nCZ 0 2 0 3 1 2 1 3 2 3 3 4"""
+            for q in queries:
+                assert s.peek_observable_expectation(stim.PauliString(q)) == 1
+
         elif idx == 3:
-            assert test_queries[0] == "XZ_ZZ"
-            assert test_queries[1] == "ZX_ZZ"
-            assert test_queries[2] == "__XZZ"
-            assert test_queries[3] == "ZZZXZ"
-            assert test_queries[4] == "ZZZZX" 
+            assert queries[0] == "XZ_ZZ"
+            assert queries[1] == "ZX_ZZ"
+            assert queries[2] == "__XZZ"
+            assert queries[3] == "ZZZXZ"
+            assert queries[4] == "ZZZZX" 
+            assert circuit == """H 0 1 2 3 4\nCZ 0 1 0 3 0 4 1 3 1 4 2 3 2 4 3 4"""
+            for q in queries:
+                assert s.peek_observable_expectation(stim.PauliString(q)) == 1
+
         elif idx == 4:
-            assert test_queries[0] == "X_Z_Z"
-            assert test_queries[1] == "_XZ_Z"
-            assert test_queries[2] == "ZZX_Z"
-            assert test_queries[3] == "___XZ"
-            assert test_queries[4] == "ZZZZX"
+            assert queries[0] == "X_Z_Z"
+            assert queries[1] == "_XZ_Z"
+            assert queries[2] == "ZZX_Z"
+            assert queries[3] == "___XZ"
+            assert queries[4] == "ZZZZX"
+            assert circuit == """H 0 1 2 3 4\nCZ 0 2 0 4 1 2 1 4 2 4 3 4"""
+            for q in queries:
+                assert s.peek_observable_expectation(stim.PauliString(q)) == 1

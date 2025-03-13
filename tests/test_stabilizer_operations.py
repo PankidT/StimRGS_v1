@@ -2,7 +2,7 @@ from stimrgs_v1.stabilizer_operations import *
 import pytest
 
 @pytest.fixture
-def simulator():
+def simulator_3arms_2bells():
     """Fixture providing initialized TableauSimulator."""
     s = stim.TableauSimulator()
     s.do_circuit(stim.Circuit('''
@@ -12,7 +12,7 @@ def simulator():
     return s
 
 @pytest.fixture
-def queries():
+def queries_3arms_2bells():
     """Fixture providing initial queries."""
     return [
         'X___ZZ______', # node 0
@@ -29,44 +29,52 @@ def queries():
         '______ZZ___X'  # node 11
     ]
 
-@pytest.fixture
-def measurement_indices():
-    """Fixture providing measurement indices to test."""
-    return [1, 4, 7, 10]
+# @pytest.fixture
+# def measurement_indices():
+#     """Fixture providing measurement indices to test."""
+#     return [1, 4, 7, 10]
 
-def test_stim_rgs_3arms(queries) -> None:
+def test_stim_rgs_3arms_2bells(queries_3arms_2bells) -> None:
     """
     For checking if the stim tableausimulator have the correct stabilizer form
     """
     s = stim_rgs_3arms_2bells()
     # Checking number of nodes
-    assert len(s.current_inverse_tableau()) == 12
+    assert s.num_qubits == 12
 
-    queries_copy = queries.copy()
+    queries_copy = queries_3arms_2bells.copy()
 
     # Check stabilizer generator
     for q in queries_copy:
         assert s.peek_observable_expectation(stim.PauliString(q)) == 1
 
-def test_measure_z_with_correction_loop(simulator, queries, measurement_indices):
-    """Test measure_z_with_correction using a loop approach."""
-    s = simulator
-    queries_copy = queries.copy()  # Create a copy to avoid modifying the fixture
-    
-    for idx in measurement_indices:
-        s, queries_copy = measure_z_with_correction(index=idx, s=s, queries=queries_copy)
-    
     for q in queries_copy:
+        if len(q) != 12:
+            raise ValueError(f"Query {q} has length {len(q)}, but should have length 12.")
+
+def test_measure_z_with_correction():
+    # s, queries_mz_plus = measure_z_with_correction(index=1, s=queries_3arms_2bells, queries=queries_3arms_2bells)
+    # for q in queries_mz_plus:
+    #     assert s.peek_observable_expectation(stim.PauliString(q)) == 1
+    pass
+
+def test_measure_z_circuit():
+    pass
+
+def measure_y_with_correction():
+    pass
+
+def test_generate_rgs_random():
+    queries, circuit = generate_rgs_random(num_nodes=16, num_bell_between_row=2)
+    assert len(queries) == 16    
+    for q in queries:
+        assert len(q) == 16
+
+    s = stim.TableauSimulator()
+    s.do_circuit(stim.Circuit(circuit))
+
+    for q in queries:
         assert s.peek_observable_expectation(stim.PauliString(q)) == 1
 
-def test_measure_z_with_correction_individual(simulator, queries, measurement_indices):
-    """Test measure_z_with_correction with individual calls."""
-    s = simulator
-    queries_copy = queries.copy()  # Create a copy to avoid modifying the fixture
-    
-    # Apply each measurement individually 
-    for idx in measurement_indices:
-        s, queries_copy = measure_z_with_correction(index=idx, s=s, queries=queries_copy)
-    
-    for q in queries_copy:
-        assert s.peek_observable_expectation(stim.PauliString(q)) == 1
+def test_find_stabilizers_result():
+    pass

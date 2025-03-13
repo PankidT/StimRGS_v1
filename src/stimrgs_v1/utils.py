@@ -1,4 +1,6 @@
 import itertools
+import re
+import stim
 
 def is_subset(list_a: list, list_b: list) -> bool:
     """
@@ -13,7 +15,7 @@ def is_subset(list_a: list, list_b: list) -> bool:
     """
     return set(list_a).issubset(set(list_b))
 
-def generate_combinations_with_adjustable_replacement(nodes: list, max_length: int, max_self_combination: int) -> list:
+def fast_generate_combinations_with_adjustable_replacement(nodes: list, max_length: int, max_self_combination: int) -> list:
     """
     Generate combinations of exactly max_length elements from nodes,
     where each element can appear up to max_self_combination times.
@@ -26,16 +28,31 @@ def generate_combinations_with_adjustable_replacement(nodes: list, max_length: i
     Returns:
         List of tuples containing the combinations
     """
-    # Generate combinations with replacement of exactly max_length
-    combinations = itertools.combinations_with_replacement(nodes, max_length)
+    if max_self_combination >= max_length:
+        # If max_self_combination is >= max_length, just use the standard function
+        return list(itertools.combinations_with_replacement(nodes, max_length))
     
-    # Filter combinations based on max_self_combination constraint
-    filtered_combinations = [
-        combo for combo in combinations 
-        if all(combo.count(x) <= max_self_combination for x in set(combo))
-    ]
+    # Use recursive generation with pruning
+    result = []
     
-    return filtered_combinations
+    def backtrack(current, start_idx, remaining):
+        if remaining == 0:
+            result.append(tuple(current))
+            return
+        
+        for i in range(start_idx, len(nodes)):
+            # Count how many times the current element is already in the combination
+            count = current.count(nodes[i])
+            
+            # Only add if we haven't reached the maximum allowed repetitions
+            if count < max_self_combination:
+                current.append(nodes[i])
+                # Stay at the same index for the next recursion since we can reuse elements
+                backtrack(current, i, remaining - 1)
+                current.pop()
+    
+    backtrack([], 0, max_length)
+    return result
 
 def find_neighbors_from_stim_tableau(index: int, queries: list) -> list:
     # Function to find neighbors based on stabilizer tableau
@@ -58,12 +75,84 @@ def find_neighbors_from_stim_tableau(index: int, queries: list) -> list:
 
     return neighbors
 
+def find_neighbors_from_selected_node(input_list: list, selected_node: int) -> list:
+    # Create a list of tuples from consecutive pairs of elements
+    grouped_elements = [(input_list[i], input_list[i+1]) for i in range(0, len(input_list) - 1, 2)]
+    
+    neighbors = []
+    for edge in grouped_elements:
+        if edge[0] == selected_node:
+            neighbors.append(edge[1])
+        elif edge[1] == selected_node:
+            neighbors.append(edge[0])
+
+    return neighbors
+
 def has_edge(n_1: int, n_2: int, queries: list) -> bool:
     # Check if n_1 is a neighbor of n_2
     neighbors_of_n2 = find_neighbors_from_stim_tableau(index=n_2, queries=queries)
     return n_1 in neighbors_of_n2
 
-def local_complementation_stim(index:int, queries:list) -> list:
+def extract_numbers_after_cz(input_string):
+    # Use regular expression to find numbers after "CZ"
+    match = re.search(r'CZ\s+([\d\s]+)', input_string)
+    if match:
+        # Extract the numbers and convert them to a list of integers
+        numbers = list(map(int, match.group(1).split()))
+        return numbers
+    else:
+        return []
+    
+def filter_groups(numbers, filter_tuples):    
+    # Create groups of 2
+    groups = [(numbers[i], numbers[i+1]) for i in range(0, len(numbers)-1)]
+    
+    # Convert groups and filter_tuples to sets for efficient comparison
+    groups_set = set(groups)
+    filter_set = set(filter_tuples)
+    
+    # Remove tuples that exist in both groups and filter
+    groups_set -= groups_set.intersection(filter_set)
+    
+    # Add tuples from filter that are not in original groups
+    groups_set.update(filter_set - set(groups))
+
+    lst = sorted(list(groups_set))
+    lst = [tpl for tpl in lst if tpl[0] != tpl[1]]
+    result = []
+    for a, b in lst:
+        result.extend([a, b])
+
+    achive = []
+    filtered_result = []
+    for i in range(len(result)):
+        achive.append(result[i])
+        if len(achive) == 2:
+            if achive[0] < achive[1]:
+                filtered_result.append((achive[0], achive[1]))
+                achive = []
+            else:
+                achive = []
+
+    final_result = []
+    for a, b in filtered_result:
+        final_result.extend([a, b])
+
+    # Convert back to list and sort for consistent output
+    return final_result
+
+def generate_h_cz_string(numbers: list, fix_nodes: bool=False, num_nodes: int=None) -> str:    
+    if fix_nodes:
+        unique_numbers = [i for i in range(num_nodes)]
+        h_line = "H " + " ".join(map(str, sorted(unique_numbers)))
+        cz_line = "CZ " + " ".join(map(str, numbers))
+    else:
+        unique_numbers = sorted(set(numbers), key=numbers.index)
+        h_line = "H " + " ".join(map(str, sorted(unique_numbers)))
+        cz_line = "CZ " + " ".join(map(str, numbers))
+    return f"""{h_line}\n{cz_line}"""
+
+def local_complementation_stim(index:int, queries:list, circuit:str) -> tuple[stim.TableauSimulator, list[str], str]:
     """Local complementation of the stabilizer at index."""    
     
     # Create a copy of the stabilizers to modify
@@ -94,6 +183,17 @@ def local_complementation_stim(index:int, queries:list) -> list:
             # Add Z to n_2's stabilizer at position n_1
             stabilizer_n2 = list(modified_stabilizers[n_2])
             stabilizer_n2[n_1] = 'Z'
-            modified_stabilizers[n_2] = ''.join(stabilizer_n2)    
+            modified_stabilizers[n_2] = ''.join(stabilizer_n2)
+
+    original_cz = extract_numbers_after_cz(circuit)
+    cz_after_filtered = filter_groups(original_cz, neighbors_combinations)
+    # print(f'original_cz: {original_cz}')
+    # print(f'neighbors_combinations: {neighbors_combinations}')
+    # print(f'cz_after_filtered: {cz_after_filtered}')
+    # print('- - - - - - - - - - - - - - - - - - - - - - - -')
+    circuit_string = generate_h_cz_string(cz_after_filtered)
     
-    return modified_stabilizers
+    s = stim.TableauSimulator()
+    s.do_circuit(stim.Circuit(circuit_string))
+    
+    return s, modified_stabilizers, circuit_string
