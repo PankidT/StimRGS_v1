@@ -31,6 +31,9 @@ def fast_generate_combinations_with_adjustable_replacement(nodes: list, max_leng
     if max_self_combination >= max_length:
         # If max_self_combination is >= max_length, just use the standard function
         return list(itertools.combinations_with_replacement(nodes, max_length))
+        # Improveable
+        # for x in itertools.combinations(range(4), 2):
+        #     print(x)
     
     # Use recursive generation with pruning
     result = []

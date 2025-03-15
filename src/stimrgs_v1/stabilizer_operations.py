@@ -128,6 +128,7 @@ def verify_stim_rgs_4arms_2bells(s: stim.TableauSimulator):
     for q in queries:
         assert s.peek_observable_expectation(stim.PauliString(q)) == 1
 
+# Improveable
 def measure_z_with_correction(index:int, s:stim.TableauSimulator, queries:list) -> tuple[stim.TableauSimulator, list[str]]:
 
     num_nodes = s.num_qubits
@@ -144,8 +145,8 @@ def measure_z_with_correction(index:int, s:stim.TableauSimulator, queries:list) 
     else:
         queries_mz_plus = [f'{q[0:index]}_{q[index+1:]}' for q in queries]        
         queries_mz_plus[index] = '_'*index + 'Z' + '_'*(num_nodes-index-1)
-
-    s.postselect_z(index, desired_value=False) 
+    
+    s.postselect_z(index, desired_value=False)
 
     for q in queries_mz_plus:
         assert s.peek_observable_expectation(stim.PauliString(q)) == 1
