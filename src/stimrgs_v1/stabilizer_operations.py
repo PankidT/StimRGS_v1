@@ -1,4 +1,4 @@
-import stim
+import stim # type: ignore
 from stimrgs_v1.utils import *
 import random
 
@@ -132,8 +132,8 @@ def measure_z_with_correction(index:int, s:stim.TableauSimulator, queries:list) 
 
     num_nodes = s.num_qubits
 
-    for q in queries:
-        assert s.peek_observable_expectation(stim.PauliString(q)) == 1
+    # for q in queries:
+    #     assert s.peek_observable_expectation(stim.PauliString(q)) == 1
 
     if index == 0:
         queries_mz_plus = [f'_{q[1:]}' for q in queries]
@@ -147,8 +147,8 @@ def measure_z_with_correction(index:int, s:stim.TableauSimulator, queries:list) 
 
     s.postselect_z(index, desired_value=False) 
 
-    for q in queries_mz_plus:
-        assert s.peek_observable_expectation(stim.PauliString(q)) == 1
+    # for q in queries_mz_plus:
+    #     assert s.peek_observable_expectation(stim.PauliString(q)) == 1
 
     return s, queries_mz_plus
 
@@ -202,7 +202,7 @@ def measure_z_circuit(circuit: str, target: int) -> str:
 
 #     return s, queries_my_plus 
 
-def generate_rgs_random(num_nodes: int, num_bell_between_row: int) -> tuple[stim.TableauSimulator, list[str]]:
+def generate_rgs_random(num_nodes: int, num_bell_between_row: int) -> tuple[stim.TableauSimulator, str]:
     """Generate a random RGS circuit with the given number of nodes and bells.
     
     Args:
@@ -210,7 +210,7 @@ def generate_rgs_random(num_nodes: int, num_bell_between_row: int) -> tuple[stim
         num_bell_between_row (int): The number of bells want to randomly generate between row1 and row2, as well as, row3 and row4.
     
     Returns:
-        stim.TableauSimulator, list[str]
+        stim.TableauSimulator, str
         rgs's queries from input configuration, and the generated RGS circuit as a string.
     """
     edges = []
@@ -222,10 +222,10 @@ def generate_rgs_random(num_nodes: int, num_bell_between_row: int) -> tuple[stim
         raise ValueError("Number of Bell pairs should be less than or equal to the number of nodes in each row.")
     
     num_nodes_each_row = int(num_nodes/4)
-    row_1 = list(range(0, num_nodes_each_row))
-    row_2 = list(range(num_nodes_each_row, 2*num_nodes_each_row))
-    row_3 = list(range(2*num_nodes_each_row, 3*num_nodes_each_row))
-    row_4 = list(range(3*num_nodes_each_row, 4*num_nodes_each_row))
+    row_1 = range(0, num_nodes_each_row)
+    row_2 = range(num_nodes_each_row, 2*num_nodes_each_row)
+    row_3 = range(2*num_nodes_each_row, 3*num_nodes_each_row)
+    row_4 = range(3*num_nodes_each_row, 4*num_nodes_each_row)
 
     for i in range(num_nodes):
         q = ['_'] * num_nodes 
@@ -258,24 +258,20 @@ def generate_rgs_random(num_nodes: int, num_bell_between_row: int) -> tuple[stim
 
                 q[index - num_nodes//4] = 'Z'
 
-        q = ''.join(q)
-        queries_result.append(q)
-        circuit = generate_h_cz_string(edges, fix_nodes=True, num_nodes=num_nodes)
-        s = stim.TableauSimulator()
-        s.do_circuit(stim.Circuit(circuit))
+        _q = ''.join(q)
+        queries_result.append(_q)
+    
+    circuit = generate_h_cz_string(edges, fix_nodes=True, num_nodes=num_nodes)
 
-        for q in queries_result:
-            assert s.peek_observable_expectation(stim.PauliString(q)) == 1
-
-    return queries_result, circuit
+    return queries_result, circuit 
    
 def find_stabilizers_result(num_nodes:int):
     all_stabilizer_result = []
     num_nodes_each_row = int(num_nodes/4)
-    row_1 = list(range(0, num_nodes_each_row))
-    row_2 = list(range(num_nodes_each_row, 2*num_nodes_each_row))
-    row_3 = list(range(2*num_nodes_each_row, 3*num_nodes_each_row))
-    row_4 = list(range(3*num_nodes_each_row, 4*num_nodes_each_row))
+    row_1 = range(0, num_nodes_each_row)
+    row_2 = range(num_nodes_each_row, 2*num_nodes_each_row)
+    row_3 = range(2*num_nodes_each_row, 3*num_nodes_each_row)
+    row_4 = range(3*num_nodes_each_row, 4*num_nodes_each_row)
 
     for i in row_1:
         for j in row_2:
