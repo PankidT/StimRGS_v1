@@ -58,7 +58,7 @@ class RGSGraph:
         self.edges = [(0, 3), (0, 4), (0, 5), (1, 3), (1, 4), (1, 5),
                      (2, 3), (2, 4), (2, 5), (6, 9), (6, 10), (6, 11),
                      (7, 9), (7, 10), (7, 11), (8, 9), (8, 10), (8, 11),
-                     (3, 6), (5, 8)]
+                     (3, 6), (4, 7), (5, 8)]
         self.graph.add_edges_from(self.edges)     
 
         self.pos = {
@@ -107,7 +107,8 @@ class RGSGraph_incomplete:
                      (2, 3), (2, 4), (6, 10), (6, 11),
                      (7, 9), (7, 11), (8, 9), (8, 10),
                      (3, 6), (4,7),(5, 8)]
-        self.graph.add_edges_from(self.edges)        
+        self.graph.add_edges_from(self.edges)    
+        # self.graph.add_edges_from([(3, 6), (4,7),(5, 8)])        
 
         self.pos = {
                     # Top row (Alice)
