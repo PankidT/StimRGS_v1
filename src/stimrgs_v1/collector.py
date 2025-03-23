@@ -53,6 +53,7 @@ class RGSExperiment:
     created_at: datetime = field(default_factory=datetime.now)
     arms: Dict[int, RGSArm] = field(default_factory=dict)
     num_cols: int = field(default=0)  # Store the number of columns (RGS arms)
+    num_rows: int = field(default=0)  # Store the number of rows (RGS arms)
     
     def add_arm(self, arm_id: int) -> RGSArm:
         """Add a new arm to the experiment"""
