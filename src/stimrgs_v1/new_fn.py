@@ -2,10 +2,10 @@ import jax
 import jax.numpy as jnp
 import itertools
 import stim
-from stimrgs_v1.collector import *
+from stimrgs_v1.collector import RGSExperiment
 import random
 
-def generate_random_rgs_v3(key: jnp.ndarray, num_rows: int, num_cols: int, edges_between_row: int, bsm_prob: float=1.0):
+def generate_random_rgs_v2(key: jnp.ndarray, num_rows: int, num_cols: int, edges_between_row: int, bsm_prob: float=1.0):
     
     nodes = jnp.arange(num_rows * num_cols).reshape((num_rows, num_cols))
     nodes = nodes.tolist()
@@ -38,10 +38,10 @@ def generate_random_rgs_v3(key: jnp.ndarray, num_rows: int, num_cols: int, edges
 
     return circuit
 
-def gen_all_bell_v2(num_rows: int, num_cols: int):
+def gen_all_bell(num_rows: int, num_cols: int):
 
     stabilzers = []
-    for i, j in itertools.product(range(0, num_cols), range(num_cols*3, num_cols*4)):
+    for i, j in itertools.product(range(0, num_cols), range(num_cols*(num_rows-1), num_cols*num_rows)):
         stab = ["_"] * (num_rows * num_cols)
         stab[i] = 'X'
         stab[j] = 'Z'
@@ -55,7 +55,7 @@ def gen_all_bell_v2(num_rows: int, num_cols: int):
     return stabilzers
 
 def simulate_rgs(key:jnp.ndarray, num_rows:int, num_cols:int, num_trials:int=1000, bsm_prob:float=1.0):
-    all_bell_stabs = gen_all_bell_v2(num_rows=num_rows, num_cols=num_cols) 
+    all_bell_stabs = gen_all_bell(num_rows=num_rows, num_cols=num_cols) 
 
     # Change number of connected between row
     for edges in range(1, (num_cols**2)+1):
@@ -68,7 +68,7 @@ def simulate_rgs(key:jnp.ndarray, num_rows:int, num_cols:int, num_trials:int=100
 
             # Generate RGS with seed
             key, graph_key = jax.random.split(key, 2)
-            circuit = generate_random_rgs_v3(graph_key, num_rows, num_cols, edges_between_row=edges, bsm_prob=bsm_prob)
+            circuit = generate_random_rgs_v2(graph_key, num_rows, num_cols, edges_between_row=edges, bsm_prob=bsm_prob)
 
             s = stim.TableauSimulator()
             s.do(stim.Circuit(circuit))
@@ -114,7 +114,7 @@ def simulate_rgs_V2(key: jnp.ndarray, num_rows: int, num_cols: int, num_trials: 
         num_cols=num_cols
     )
     
-    all_bell_stabs = gen_all_bell_v2(num_rows=num_rows, num_cols=num_cols)
+    all_bell_stabs = gen_all_bell(num_rows=num_rows, num_cols=num_cols)
 
     # Change number of connected between row
     for edges in range(1, (num_cols**2) + 1):
@@ -128,7 +128,7 @@ def simulate_rgs_V2(key: jnp.ndarray, num_rows: int, num_cols: int, num_trials: 
         for trial in range(num_trials):
             # Generate RGS with seed
             key, graph_key, meas_1_key, meas_2_key = jax.random.split(key, 4)
-            circuit = generate_random_rgs_v3(graph_key, num_rows, num_cols, edges_between_row=edges, bsm_prob=bsm_prob)
+            circuit = generate_random_rgs_v2(graph_key, num_rows, num_cols, edges_between_row=edges, bsm_prob=bsm_prob)
 
             s = stim.TableauSimulator()
             s.do(stim.Circuit(circuit))
@@ -140,6 +140,142 @@ def simulate_rgs_V2(key: jnp.ndarray, num_rows: int, num_cols: int, num_trials: 
             # Measure Z on end nodes            
             node_1 = jax.random.choice(meas_1_key, jnp.array([i for i in range(num_cols)]))
             node_2 = jax.random.choice(meas_2_key, jnp.array([i for i in range(num_cols * 3, num_cols * 4)]))
+            for i in [node_1, node_2]:
+                s.postselect_z(i, desired_value=False)
+
+            r = s.canonical_stabilizers()
+            set_r = set(map(str, filter(lambda x: x.weight == 2, r)))
+
+            is_contained_bell_pair = set_r.issubset(set(all_bell_stabs))
+
+            if is_contained_bell_pair:
+                bell_value = len(set_r) / 2
+                bell_each_trial = jnp.append(bell_each_trial, bell_value)
+                
+                # Store this individual trial result with metadata
+                experiment.add_result_to_arm(
+                    edges, 
+                    float(bell_value), 
+                    metadata={"trial": trial, "node_1": int(node_1), "node_2": int(node_2)}
+                )
+
+        # Calculate the statistics using JAX
+        if len(bell_each_trial) > 0:
+            mean_bells = float(jnp.mean(bell_each_trial))
+            std_bells = float(jnp.std(bell_each_trial))
+            
+            # Print the result as in your original code
+            print(f'Num edges connected {edges}, Bell found: {mean_bells} ± {std_bells}')
+        else:
+            print(f'Num edges connected {edges}, No bell pairs found')
+    
+    return experiment
+
+# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+
+def generate_random_rgs_v3(key: jnp.ndarray, num_rows: int, num_cols: int, edges_between_row: int, bsm_prob: float=1.0):    
+    """
+    This version can generate rgs more than 2 hops
+    """
+    num_absa = int((num_rows/2) -1) # num_rows = 6 -> num_absa = 2 (3 hops, 3 rgs)
+    nodes = jnp.arange(num_rows * num_cols).reshape((num_rows, num_cols))
+    nodes = nodes.tolist()
+    
+    # Determine node for connection between rows
+    is_connected = jnp.ones(shape=(num_cols**2, ), dtype=jnp.bool_)
+    num_false = num_cols**2 - edges_between_row
+    false_indices = jax.random.choice(key, jnp.arange(len(is_connected)), shape=(num_false,), replace=False)    
+    is_connected = is_connected.at[false_indices].set(False)
+
+    is_connected = jnp.concatenate([is_connected] * (num_absa+1))
+
+    # Fixed edge generation to include all required connections
+    edges = []
+    for i in range(0, num_rows-1, 2):
+        # This ensures we get edges between rows i and i+1, for all pairs of rows
+        edges.extend(itertools.product(nodes[i], nodes[i+1]))
+
+    def generate_pattern_v2():
+        results = []
+        
+        for absa in range(num_absa):
+            # Calculate the starting offset for this absa
+            offset = absa * num_cols * 2
+            
+            result = []
+            for i in range(num_cols, 2*num_cols):
+                current_num = i + offset
+                if random.random() < bsm_prob:
+                    result.append(str(current_num))                # Add the current number
+                    result.append(str(current_num + num_cols))     # Add the current number + num_cols
+            
+            results.append(' '.join(result))
+        
+        # Return a single string if num_absa is 1, otherwise return a tuple
+        return results[0] if num_absa == 1 else tuple(results)
+
+    circuit = "H " + " ".join([str(i) for i in range(int(num_cols * num_rows))]) + '\nCZ '
+    circuit += ' '.join([ f'{i} {j}' for is_c, (i, j) in zip(is_connected, edges) if is_c])    
+    if num_absa == 1:
+        circuit += ' ' + generate_pattern_v2()
+    else:
+        for i in range(num_absa):
+            circuit += ' ' + generate_pattern_v2()[i]
+
+    return circuit
+
+def simulate_rgs_V3(key: jnp.ndarray, num_rows: int, num_cols: int, num_trials: int = 1000, bsm_prob:float=1.0):
+    """
+    This version for generate_random_rgs_v3, and can simulate more than 2 hops
+    """    
+    num_absa = int((num_rows/2) -1)
+    # Create an experiment for this RGS configuration
+    experiment = RGSExperiment(
+        name=f"RGS {num_cols} arms, {num_absa+1} hops experiment", 
+        description=f"Simulation with num_rows={num_rows}, num_cols={num_cols}, num_trials={num_trials}",
+        num_cols=num_cols,
+        num_rows=num_rows
+    )
+    
+    all_bell_stabs = gen_all_bell(num_rows=num_rows, num_cols=num_cols)
+
+    # Change number of connected between row
+    for edges in range(1, (num_cols**2) + 1):
+        # This represents the arm in our experiment
+        experiment.add_arm(edges)
+
+        # Collect number of bells found for calculate mean+-std
+        bell_each_trial = jnp.array([])
+
+        # Repeat simulate trial times
+        for trial in range(num_trials):
+            # Generate RGS with seed
+            key, graph_key, meas_1_key, meas_2_key = jax.random.split(key, 4)
+
+            # = = = = Version 4 of generate rgs (multi-hops) = = = = = = = = = = = = = = = = = = = =
+            circuit = generate_random_rgs_v3(graph_key, num_rows, num_cols, edges_between_row=edges, bsm_prob=bsm_prob)
+            # = = = = Version 4 of generate rgs (multi-hops) = = = = = = = = = = = = = = = = = = = =
+
+            s = stim.TableauSimulator()
+            s.do(stim.Circuit(circuit))
+
+            # Measure X on middle nodes
+            meas_x_list = []    
+            for absa in range(num_absa):
+                # Calculate the starting offset for this absa
+                offset = absa * num_cols * 2
+                
+                for i in range(num_cols, 2*num_cols):
+                    current_num = i + offset            
+                    meas_x_list.append(current_num)
+                    meas_x_list.append(current_num + num_cols)
+            meas_x_list.sort()            
+            for i in meas_x_list:
+                s.postselect_x(i, desired_value=False)
+
+            # Measure Z on end nodes
+            node_1 = jax.random.choice(meas_1_key, jnp.array([i for i in range(num_cols)]))
+            node_2 = jax.random.choice(meas_2_key, jnp.array([i for i in range(num_cols * (num_rows-1), num_cols * num_rows)]))
             for i in [node_1, node_2]:
                 s.postselect_z(i, desired_value=False)
 
